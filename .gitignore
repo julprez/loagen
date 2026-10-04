@@ -1,0 +1,34 @@
+# Bytecode de Python
+__pycache__/
+*.pyc
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Cachés de herramientas de desarrollo
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Estado generado por el agente (memoria y trazas) dentro del workspace
+.loagen/
+# Nombre anterior del harness, por si queda estado de una versión previa
+.local-agente/
+
+# Configuración personal del workspace (rutas, servicios y stacks de tus proyectos).
+# No se versiona: la plantilla pública es rules.example.toml y cada usuario genera
+# la suya con `loagen --init`.
+/rules.toml
+
+# Artefactos de empaquetado (pip install . / python -m build)
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Basura del sistema operativo
+.DS_Store

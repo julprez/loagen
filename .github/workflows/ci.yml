@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # El harness no tiene dependencias: los tests corren sin instalar nada.
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+
+      # El CLI tiene que arrancar sin Ollama: solo se construye el registro de
+      # herramientas. (El modelo hace falta para ejecutar tareas, no para esto.)
+      - name: El CLI arranca
+        run: python agente.py --tools
+
+      - name: Ayuda
+        run: python agente.py --help
+
+      - name: Skills
+        run: python agente.py --list-skills
+
+      - name: Instalar y verificar fuera del checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          pip install .
+          cd "$RUNNER_TEMP"
+          loagen --help
+          loagen --list-skills
+          loagen --tools
+
+  empaquetado:
+    name: Empaquetado (pip install)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar el paquete
+        run: pip install .
+
+      - name: El comando instalado funciona
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          loagen --tools
+          loagen --list-skills
+
+      - name: Lint y tipos
+        run: |
+          pip install pyflakes mypy
+          python -m pyflakes harness agente.py tests docs/capturas/generar.py
+          python -m mypy harness agente.py --check-untyped-defs

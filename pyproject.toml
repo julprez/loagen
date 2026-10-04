@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loagen"
+version = "0.1.0"
+description = "Harness de agente para modelos locales en Ollama: herramientas, permisos, memoria y verificación, sin dependencias externas."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+keywords = ["ollama", "agent", "llm", "local", "harness"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Code Generators",
+]
+# Cero dependencias a propósito: solo la biblioteca estándar.
+dependencies = []
+
+[project.scripts]
+loagen = "agente:main"
+
+[tool.setuptools]
+py-modules = ["agente"]
+
+[tool.setuptools.package-data]
+"harness.skills" = ["data/*/SKILL.md"]
+
+[tool.setuptools.packages.find]
+include = ["harness*"]

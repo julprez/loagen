@@ -1,0 +1,78 @@
+# Configuración del harness loagen.
+# Cópialo como `rules.toml` en la raíz de tu workspace y ajústalo.
+# Si no existe, se usan estos valores por defecto.
+
+[model]
+name = "qwen2.5:1.5b-instruct"
+host = "http://127.0.0.1:11434"
+temperature = 0.0
+num_ctx = 8192
+num_predict = 512     # tope de tokens por turno: evita que el modelo se enrolle
+
+[loop]
+max_steps = 12                 # tope de Perception->Action por tarea
+max_retries = 2                # reintentos guiados si el modelo se rinde tras un error
+plan = false                   # planificación previa (task graph); opt-in
+plan_max_steps = 6
+plan_max_nudges = 2            # avisos de "te quedan pasos"
+tool_output_max_chars = 4000   # recorte por observación
+keep_last_messages = 14        # historial intacto antes de comprimir
+compress_threshold = 0.85      # fracción de num_ctx que dispara la compresión
+tool_selection = true          # envía solo las herramientas del grupo de la tarea
+web = true                     # navegador (web_search, wiki, fetch_url)
+cerebro_root = ""              # "" = autodetectado (../../cerebro)
+# Intérprete de la herramienta `bash`. "" = el del sistema (/bin/sh en Linux/macOS,
+# cmd.exe en Windows). En Windows, pon "bash" si tienes Git Bash, para que funcionen los
+# comandos POSIX que genera el modelo (`ls`, `grep`, `cat`).
+shell = ""
+
+[permissions]
+# Acción para herramientas que modifican algo y no casan con ninguna regla.
+default = "ask"
+allow_outside_workspace = false
+
+# --- Nivel 1: DENY (gana siempre, se evalúa en orden) --------------------
+[[permissions.rule]]
+tool = "bash"
+match = "rm\\s+-rf\\s+/"
+action = "deny"
+reason = "borrado recursivo de raíz"
+
+[[permissions.rule]]
+tool = "bash"
+match = "sudo|mkfs|dd\\s+if=|:(){:|shutdown|reboot"
+action = "deny"
+reason = "comando destructivo o de sistema"
+
+[[permissions.rule]]
+tool = "*"
+match = "(\\.ssh|id_rsa|\\.aws/credentials|/etc/shadow)"
+action = "deny"
+reason = "credenciales o secretos"
+
+[[permissions.rule]]
+tool = "bash"
+match = "curl[^|]*\\|\\s*(ba)?sh"
+action = "deny"
+reason = "ejecutar script descargado de la red"
+
+# --- Nivel 2: APPROVE automático (allow) --------------------------------
+[[permissions.rule]]
+tool = "bash"
+match = "^\\s*(ls|pwd|cat|head|tail|wc|find|git (status|log|diff)|grep)\\b"
+action = "allow"
+reason = "comandos de solo lectura"
+
+[[permissions.rule]]
+tool = "bash"
+match = "^\\s*python3?\\s"
+action = "allow"
+reason = "ejecutar Python en el workspace"
+
+[[permissions.rule]]
+tool = "write_file"
+match = ".*"
+action = "ask"
+reason = "escritura de ficheros"
+
+# --- Nivel 3: resto -> `default` ("ask") --------------------------------
