@@ -1,0 +1,148 @@
+# Fixture de la suite de tests. NO es tu configuración personal: es el contrato de
+# seguridad versionado que `tests/test_rules.py` fija para detectar si alguien
+# reordena las reglas o retoca un patrón.
+#
+# Es autocontenido a propósito. El repo no versiona `rules.toml` (config personal de
+# cada workspace), así que la suite debe poder correr en un clon limpio y en CI.
+
+[model]
+name = "qwen2.5:1.5b-instruct"
+host = "http://127.0.0.1:11434"
+temperature = 0.0
+num_ctx = 8192
+num_predict = 320
+
+[loop]
+max_steps = 12
+max_retries = 2
+plan = true
+
+[permissions]
+# Acción para herramientas que modifican algo y no casan con ninguna regla.
+default = "ask"
+allow_outside_workspace = false
+
+# ===========================================================================
+# 1. DENY (la primera regla que casa gana; por eso van antes que los allow)
+# ===========================================================================
+
+[[permissions.rule]]
+tool = "*"
+match = '(\.ssh/|id_rsa|id_ed25519|\.aws/credentials|\.npmrc|\.netrc|\.pgpass|\.docker/config\.json|\.git-credentials)'
+action = "deny"
+reason = "credenciales o claves privadas"
+
+[[permissions.rule]]
+tool = "*"
+match = '/etc/(shadow|sudoers)|/root/\.ssh'
+action = "deny"
+reason = "ficheros de sistema sensibles"
+
+[[permissions.rule]]
+tool = "bash"
+match = 'rm\s+(-[a-zA-Z]+\s+)*(/|~|\$HOME|\*)(\s|$)'
+action = "deny"
+reason = "borrado recursivo de raíz, home o comodín global"
+
+[[permissions.rule]]
+tool = "bash"
+match = '\bsudo\b|\bsu\s+-|\bdoas\b'
+action = "deny"
+reason = "escalada de privilegios"
+
+[[permissions.rule]]
+tool = "bash"
+match = '\bmkfs|\bdd\s+if=|:\(\)\s*\{|\b(shutdown|reboot|halt|poweroff)\b|>\s*/dev/sd'
+action = "deny"
+reason = "comando destructivo o de sistema"
+
+[[permissions.rule]]
+tool = "bash"
+match = '(curl|wget)[^|;]*\|\s*(ba)?sh'
+action = "deny"
+reason = "ejecutar un script descargado de la red"
+
+[[permissions.rule]]
+tool = "bash"
+match = 'git\s+(reset\s+--hard|clean\s+-[a-zA-Z]*[fd]|checkout\s+--\s+\.|restore\s+\.|branch\s+-D)'
+action = "deny"
+reason = "descarta trabajo sin posibilidad de recuperarlo"
+
+[[permissions.rule]]
+tool = "bash"
+match = 'git\s+(push\s+(-f|--force)|filter-branch|reflog\s+delete)'
+action = "deny"
+reason = "reescribe historia o publica cambios forzados"
+
+[[permissions.rule]]
+tool = "bash"
+match = 'docker\s+(system\s+prune|rm\s+-f|rmi\b|volume\s+rm)'
+action = "deny"
+reason = "borrado de contenedores, imágenes o volúmenes"
+
+# ===========================================================================
+# 2. ALLOW: trabajo diario.
+#
+# OJO: en `bash` una regla allow NO autoaprueba. Un prefijo regex no prueba los
+# efectos del comando, así que el harness la degrada a `ask` (ver
+# harness/config.py::action_for). Estas reglas dejan constancia de la intención;
+# el test fija además que bash sigue pidiendo aprobación.
+# ===========================================================================
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*(ls|pwd|cat|head|tail|wc|file|stat|tree|du|df|find|sort|uniq|diff|cut|tr|basename|dirname|realpath|readlink|which|type|id|date|echo|printf|sleep|true|test|grep|rg|fd|bat|jq|sed\s+-n)\b'
+action = "allow"
+reason = "comandos de solo lectura"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*(cd|export|source|mkdir\s+-p\s+/tmp)\b'
+action = "allow"
+reason = "navegación y variables de shell"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*git\s+(status|log|diff|show|branch|remote|rev-parse|blame|describe|tag|stash\s+list|show-ref|shortlog)\b'
+action = "allow"
+reason = "consulta de git"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*git\s+(add|commit|switch|checkout\s+-b|stash|pull\s+--ff-only|fetch|merge)\b'
+action = "allow"
+reason = "flujo normal de git en local"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*(go\s+(build|test|vet|run|fmt|mod|generate|list|env|version|tool)|gofmt|golangci-lint|staticcheck)\b'
+action = "allow"
+reason = "toolchain de Go"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*(npm|pnpm|yarn|npx|node|vite|svelte-check|tsc|eslint|prettier|bun)\b'
+action = "allow"
+reason = "toolchain de Node"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*(pio|platformio)\b'
+action = "allow"
+reason = "toolchain de PlatformIO"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*(python3?|pip3?|uv|poetry|pytest|ruff|mypy|black|isort)\b'
+action = "allow"
+reason = "toolchain de Python"
+
+[[permissions.rule]]
+tool = "bash"
+match = '^\s*(ffmpeg|ffprobe|edge-tts|convert|magick|identify|mogrify|inkscape|rsvg-convert)\b'
+action = "allow"
+reason = "procesado de media"
+
+# ===========================================================================
+# 3. Resto de casos -> `default = "ask"` (escritura de ficheros incluida)
+# ===========================================================================

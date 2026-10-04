@@ -907,17 +907,23 @@ class PythonVersionDegradationTests(unittest.TestCase):
         self.assertEqual(cfg.toml_skipped, "")
 
     def test_cli_exits_cleanly_without_tomllib(self):
-        """El flag se lee con un `rules.toml` real: el aviso sale a stderr y el exit es 0."""
+        """Con un `rules.toml` real, el aviso sale a stderr y el exit es 2.
+
+        Se pasa `--rules` al ejemplo versionado para no depender del `rules.toml`
+        personal (que el repo no incluye).
+        """
         import contextlib
         import io
 
         import agente
 
+        example = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "..", "rules.example.toml")
         with mock.patch.object(config_mod, "tomllib", None), \
                 mock.patch.object(config_mod, "TOML_AVAILABLE", False):
             err = io.StringIO()
             with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
-                code = agente.main(["--tools"])
+                code = agente.main(["--tools", "--rules", example])
         self.assertEqual(code, 2)
         self.assertIn("tomllib", err.getvalue())
         self.assertIn("rules.toml", err.getvalue())
