@@ -16,8 +16,8 @@ la terminal no le da: **herramientas, permisos, memoria y verificación**.
 Nace de analizar el diagrama *Claude Code Architecture* y quedarse con la parte que un
 modelo de 1.5B sostiene de verdad — medida, no supuesta. De ahí sale la tabla de
 [«Arquitectura»](#arquitectura): cada capa útil tiene aquí su equivalente, y las que este
-modelo no aguanta están en [«Límites»](#límites). Lo que se afirmó sin medir está en
-[«Lo que medimos»](#lo-que-medimos).
+modelo no aguanta están en [«Límites»](docs/limites.md). Lo que se afirmó sin medir está en
+[«Lo que medimos»](docs/mediciones.md).
 
 ![loagen --doctor](docs/capturas/doctor.png)
 
@@ -88,7 +88,7 @@ la vía 1 o la 2).
 | **Windows** | Funciona, con un ajuste: el `bash` del agente usa `cmd.exe` por defecto y los comandos POSIX (`ls`, `grep`, `cat`) no existen ahí. Con **Git Bash** instalado, en `rules.toml`: `shell = "bash"`. Fuera del shell, el resto (ficheros, permisos, memoria) es igual. Bajo **WSL** no hace falta el ajuste. |
 | **VPS / servidor sin escritorio** | Igual que Linux y **sin nada gráfico**: el render con Chromium es opcional (si falta, `fetch_url` usa el HTML estático). Para tenerlo arrancado, un servicio `systemd` de usuario con `ExecStart=/usr/local/bin/loagen -w /ruta/al/proyecto` — como cualquier otro proceso. |
 
-Windows y macOS **no se han medido** en este repo (todo lo de [«Lo que medimos»](#lo-que-medimos)
+Windows y macOS **no se han medido** en este repo (todo lo de [«Lo que medimos»](docs/mediciones.md)
 es de Linux): trátalos como «debería funcionar» hasta que alguien lo pruebe.
 
 ### Configurar en un minuto
@@ -115,7 +115,7 @@ escrito: /home/usuario/mi-proyecto/rules.toml
 
 Los números que escribe no son inventados: son los medidos en este proyecto (`num_predict`
 que evita los bucles de minutos, selección de herramientas porque recorta el prompt, y el
-**plan desactivado**, que es lo contraintuitivo y está [medido](#lo-que-medimos): para una
+**plan desactivado**, que es lo contraintuitivo y está [medido](docs/mediciones.md): para una
 tarea de un paso no aporta nada y cuesta una llamada extra al modelo).
 
 `--doctor` dice qué falta y qué es solo una mejora:
@@ -165,23 +165,41 @@ python3 agente.py --read-only "explica qué hace este repo"
 | --- | --- |
 | `-m/--model` | modelo de Ollama (def. `qwen2.5:1.5b-instruct`) |
 | `-w/--workspace` | raíz de trabajo; las rutas se confinan aquí |
+| `--host` | URL de Ollama (def. `http://127.0.0.1:11434`) |
+| `--rules` | ruta alternativa a `rules.toml` |
 | `--yes` | auto-aprueba los permisos `ask` |
 | `--read-only` | **suelo absoluto**: ninguna regla `allow` del fichero lo puede anular |
+| `--allow-outside-workspace` | permite leer/escribir fuera del workspace |
+| `--max-steps` / `--task-timeout` | topes de pasos y de segundos por tarea |
+| `--max-tool-calls` / `--max-total-tokens` | presupuesto de llamadas a herramientas y de tokens |
+| `--num-ctx` / `--temperature` | ventana de contexto y temperatura de Ollama |
+| `--max-output-tokens` | tope de tokens por turno (def. 512); evita que el modelo se enrolle |
 | `--plan` / `--no-plan` | activa/desactiva la planificación previa (task graph) |
+| `--plan-max-steps` | máximo de pasos del plan (def. 5) |
 | `--plan-require` / `--no-plan-require` | exige (o no) terminar el plan antes de cerrar |
 | `--no-web` | desactiva el navegador (`web_search`, `wiki`, `fetch_url`) |
 | `--no-tool-selection` | envía **todas** las herramientas (por defecto se eligen por tarea) |
-| `--init` / `--force` | escribe un `rules.toml` detectado en el workspace (y lo sobrescribe) |
-| `--doctor` | diagnostica el entorno: sale `2` si algo impide ejecutar |
 | `--cerebro-root` | ruta a `cerebro/` (def. autodetectada) |
-| `--plan-max-steps` | máximo de pasos del plan (def. 5) |
 | `--subagent-model` | modelo de los subagentes (def. el mismo que el principal) |
 | `--subagent-max-steps` | tope de pasos de cada subagente (def. 8) |
-| `--max-output-tokens` | tope de tokens por turno (def. 512); evita que el modelo se enrolle |
-| `--allow-outside-workspace` | permite salir del workspace |
-| `-v/--verbose` | muestra las observaciones (salida de cada herramienta) |
-| `--rules` | ruta alternativa a `rules.toml` |
+| `--skill` / `--list-skills` | carga una skill local concreta / lista las disponibles |
+| `--expect-file` / `--expect-content` | exige que exista un fichero / contenido exacto (`PATH=TEXT`) |
+| `--init` / `--force` | escribe un `rules.toml` detectado en el workspace (y lo sobrescribe) |
+| `--doctor` | diagnostica el entorno: sale `2` si algo impide ejecutar |
+| `--tools` / `--list-models` | lista las herramientas registradas / los modelos de Ollama |
+| `-v/--verbose` / `-q/--quiet` | muestra las observaciones / silencia el progreso |
 | `-i/--interactive` | modo conversación |
+
+### Códigos de salida
+
+| Exit | Estado |
+| --- | --- |
+| 0 | `completed`: contrato explícito satisfecho (`--expect-file` / `--expect-content`) |
+| 2 | error |
+| 3 | `incomplete` o `blocked` |
+| 4 | `unverified`: respuesta útil, sin comprobación integral |
+
+Sin contrato explícito el resultado no se anuncia como `completed` aunque use herramientas.
 
 ### Qué `rules.toml` se usa
 
@@ -203,7 +221,7 @@ la carpeta y se ejecuta.
 
 | | Estado |
 | --- | --- |
-| **Linux** | Soportado y **verificado**. Es donde se midió todo lo de [«Lo que medimos»](#lo-que-medimos). |
+| **Linux** | Soportado y **verificado**. Es donde se midió todo lo de [«Lo que medimos»](docs/mediciones.md). |
 | **macOS** | Debería funcionar igual: es POSIX, así que el shell y las reglas encajan. No medido en este repo. |
 | **Windows** | Arranca, pero necesita ajustes: ver «Windows» abajo. Funciona mejor bajo WSL. |
 
@@ -274,20 +292,20 @@ Cada capa útil del diagrama tiene su equivalente aquí:
 | Diagrama | Aquí | Fichero |
 | --- | --- | --- |
 | User Interface (CLI) | CLI + modo conversación | `agente.py` |
-| Permission Gate (Deny·Allow·Approve) | 3 niveles + `--read-only`/`--yes` | `harness/permissions.py` |
+| Permission Gate (Deny·Allow·Approve) | 3 niveles + `--read-only`/`--yes` | `harness/policy/permissions.py` |
 | YAML Rules · 3 tiers | `rules.toml` (TOML: es estándar, no necesita dependencia) | `rules.example.toml` |
 | Master Agent Loop (Perception→Action→Observation) | bucle con guards de autocorrección | `harness/loop.py` |
 | Task Graph (Dependencies · Priorities) | plan previo saneado, orden topológico y avisos de pasos pendientes | `harness/plan.py` |
 | Subagent Spawner (Isolated context · Clean delegation) | subagente con contexto, traza y presupuesto propios; se lee sin verificar | `harness/loop.py` |
 | External Servers (Filesystem · Git · Custom) | navegador web (búsqueda, Wikipedia, render) y cerebro local como herramientas | `harness/navegador.py`, `harness/cerebro_tool.py` |
-| Tool Dispatch (Typed registry · one handler per tool) | registro tipado, errores como observación | `harness/tools.py` |
-| Memory Store (cross-session) | `agent_memory.md` + herramienta `remember` | `harness/memory.py` |
-| Context Compressor (3-layer, umbral) | prefijo congelado + resumen elástico | `harness/memory.py` |
-| Prompt Cache (stable prefix reuse) | capas 1–2 idénticas entre turnos | `harness/memory.py` |
-| Event Bus (Observability) | trazas JSONL por sesión | `harness/trace.py` |
-| Task Result (Verified output) | registro de hechos verificado por el harness | `harness/trace.py` |
-| MCP Runtime / External Servers | **no** (ver [límites](#límites)) | — |
-| Multi-Agent Layer (todo) | **no** (ver [límites](#límites)) | — |
+| Tool Dispatch (Typed registry · one handler per tool) | registro tipado, errores como observación | `harness/tools/` |
+| Memory Store (cross-session) | `agent_memory.md` + herramienta `remember` | `harness/storage/memory.py` |
+| Context Compressor (3-layer, umbral) | prefijo congelado + resumen elástico | `harness/storage/memory.py` |
+| Prompt Cache (stable prefix reuse) | capas 1–2 idénticas entre turnos | `harness/storage/memory.py` |
+| Event Bus (Observability) | trazas JSONL por sesión | `harness/storage/trace.py` |
+| Task Result (Verified output) | registro de hechos verificado por el harness | `harness/storage/trace.py` |
+| MCP Runtime / External Servers | cliente **stdio opcional** (2025-06-18; sin HTTP/OAuth) | `harness/mcp/` |
+| Multi-Agent Layer (todo) | **no** (ver [límites](docs/limites.md)) | — |
 
 ### Herramientas
 
@@ -556,103 +574,8 @@ sí puede verificar.
 
 ## Lo que medimos
 
-Datos reales de este equipo con `qwen2.5:1.5b-instruct` (no estimaciones):
-
-* Emite **`tool_calls` nativos** por la API de Ollama: ~2,6–5,9 s por turno.
-* `qwen2.5-coder:3b` **no** emite `tool_calls` nativos: devuelve el JSON como texto.
-  Por eso el cliente también parsea texto (`llm.py`) y acepta ese modelo.
-* Confundir carpeta con fichero: con `mkdir` separado y su descripción como guía
-  negativa, la tarea «crea `demo/saludo.txt`» se resolvió **a la primera** (2 pasos,
-  ~23 s). Sin ese arreglo, el modelo escribió un fichero llamado `demo`.
-* El aviso de reintento **funciona como mensaje `user` y falla como `system`**
-  (probado con 5 variantes). Reinyectar la prosa del modelo lo ancla en su propio
-  error: hay que omitirla.
-* El dialecto posicional (`write_file ruta "contenido"`) no interpreta escapes: sin
-  convertir `\n` literales, Python da `SyntaxError`. Medido y corregido.
-* Modelos pequeños escriben llamadas en 4 dialectos: nativo, JSON suelto,
-  `herramienta(args)` y `herramienta arg1 arg2`. El cliente los normaliza todos.
-* **El tope de tokens (`num_predict`) es imprescindible en CPU.** Sin él, un subagente se
-  enrolló generando ~1.900 tokens a 11,6 tok/s y agotó los 180 s de timeout (log de
-  Ollama: `cancel task, n_tokens = 2886`). Con tope, el peor turno baja a ~28-57 s y el
-  guard de truncado lo reconduce en el turno siguiente (medido: 54 s → 4,9 s).
-* **En CPU la latencia la manda el PROMPT, no la generación.** Del log de Ollama:
-  `prompt eval = 12,3 ms/token` (≈81 tok/s) frente a ~11,6 tok/s de generación. Añadir el
-  navegador y el cerebro subió el prompt de ~1018 a **~1464 tokens** (~18 s solo de
-  evaluación), y la misma tarea pasó de 18 s a **31,8 s**. Comprimir el prompt de sistema
-  y las descripciones de herramientas lo bajó a ~1235 tokens y la tarea a **24,0 s**
-  (~25 % menos). Ollama sí reutiliza el prefijo (`cached n_tokens = 1203`), así que ese
-  coste se paga una vez por sesión, no en cada paso.
-* Un informe largo del subagente **desestabiliza al padre**: 1.467 caracteres de ruido
-  bastaron para que entrara en un bucle de 512 tokens (57 s). De ahí el recorte a 1.000.
-* El subagente **se inventa nombres de fichero** (`ls.py`, `ls2.py`) en vez de listarlos;
-  hay que decirle explícitamente que los descubra con `list_dir`/`glob`.
-* Un **plan de un solo paso** no aporta nada y dispara un aviso inútil: se descarta.
-* Dos fallos de seguridad que aparecieron al escribir los tests: `--read-only` era
-  anulable por una regla `allow` del fichero, y un subagente podía escribir en una sesión
-  `--read-only`. Ambos corregidos y cubiertos por tests.
-* El plan **sí ayuda pero no garantiza**: con el task graph activo, una tarea de 3 pasos
-  se completó entera (ficheros escritos + test ejecutado, y el marcado en lote
-  `plan_update('1,2,3,4')` funcionó: 4/4 en una sola llamada). En otra ejecución el mismo
-  modelo cerró con pasos pendientes y hubo que recordárselo.
-* **El planificador reescribía la tarea, y se arregló.** Medido al generar las capturas,
-  con la misma tarea simple («escribe en notas.txt el texto hola»), el mismo modelo y 4
-  ejecuciones por modo. «Limpia» = artefacto correcto en disco y sin avisos, reintentos ni
-  otros alfabetos en la salida:
-
-  | | salidas limpias | tiempo |
-  | --- | --- | --- |
-  | plan activado, **antes** | **0/4** | ~37 s |
-  | plan activado, **después** | **4/4** | ~5 s |
-  | plan desactivado | **4/4** | ~5 s |
-
-  La causa estaba en el propio prompt: su ejemplo decía «crear la carpeta demo» y
-  «escribir `demo/saludo.txt`», y el modelo **lo copiaba**. Para «escribe en `notas.txt`»
-  devolvía «crear la carpeta demo» y «escribir `demo/notes.txt`» — otro fichero, en otra
-  carpeta — y el harness lo aceptaba, porque verifica el artefacto **del plan**, no el que
-  pediste. Dos arreglos: el prompt ya no enseña nombres inventados y prohíbe renombrar o
-  añadir lo que no esté en la tarea; y un guard determinista (`contradicts_task`) descarta
-  el plan si habla de otro fichero con la **misma extensión** que la tarea. Un nombre
-  derivado (`calculadora` → `tests/test_calculadora.py`) se sigue aceptando.
-* Aun así, `--init` genera **`plan = false`**: para una tarea de un paso el planificador
-  suele devolver un plan de un paso, que el harness descarta (regla ya existente), así que
-  no aporta nada y cuesta una llamada extra al modelo. Actívalo para tareas de varios
-  pasos — es lo que enseña la captura de [«Planificación (Task Graph)»](#planificación-task-graph).
-* **`plan_require` empeora el resultado con 1.5b** (medido, por eso queda desactivado en
-  `rules.toml`): al recibir el rechazo, el modelo se quedó repitiendo `mkdir` de un paso
-  ya hecho — 9 pasos, 88,9 s y **cero ficheros** creados, frente a la ejecución sin
-  exigirlo, que completó los 2 ficheros y el test. La maquinaria funciona (avisa, no se
-  cuelga, cierra con AVISO); el modelo no sabe salir del rechazo. Actívalo con un modelo
-  mayor.
-* La tarea simple de 3 ficheros tarda **~50-90 s** y tiene mucha varianza (mismo prompt,
-  misma máquina): en una tirada 56 s y completa, en otra degeneró. Es la varianza del
-  modelo a temperatura 0, no del harness.
-* **Las herramientas no son gratis: cada esquema se paga en el prompt.** Cada
-  herramienta añade ~65-100 tokens de esquema, y en CPU eso es ~1 s de evaluación cada
-  una. Con 19 herramientas el bloque de esquemas son ~5.024 caracteres (~1.256 tokens);
-  con 14 son ~3.719 (~929).
-* **Seleccionar herramientas por tarea baja la latencia de verdad** (misma tarea de
-  código, mismo modelo, mismo equipo, dos ejecuciones seguidas):
-
-  | | paso 1 | paso 2 |
-  | --- | --- | --- |
-  | catálogo completo (19 herramientas) | 27,92 s, **1702** tokens | 15,20 s, **1920** tokens |
-  | selección por tarea (14, grupo `code`) | 20,83 s, **1422** tokens | 12,15 s, **1640** tokens |
-
-  Son **280 tokens** menos y **7,1 s** menos en el primer paso (y 280/3,0 s en el
-  segundo), con la misma herramienta elegida (`cerebro_buscar`) en ambas. Una tarea
-  ambigua habría recibido las 19. Nota: Ollama reutiliza el prefijo, así que el ahorro se
-  concentra en el arranque y cuando el prefijo cambia, no en cada turno.
-* **`cerebro_defs`/`cerebro_callers` encuentran lo que `impact` no distingue.** Con
-  `run_search` real: `defs` da las 2 definiciones (prototipo y real) y `callers` los 11
-  puntos de uso directo con su número de referencias; `impact` da el árbol transitivo
-  pero no dice cuántas veces se usa cada uno.
-* **El registro de fuentes tenía dos fallos que solo aparecieron ejecutándolo de verdad**
-  (no en los tests): (1) una página que primero salía en resultados y luego se leía con
-  `fetch_url` se quedaba marcada `[NO leída]`, así que el guard de citación no la veía
-  — ahora la entrada **se asciende** a leída conservando su número; (2) el guard no se
-  apagaba al citar `[1]`, porque solo buscaba la URL en el texto: el modelo citaba
-  correctamente y aun así gastaba los reintentos en un aviso ya cumplido. Los dos están
-  cubiertos por tests, incluido uno de punta a punta del bucle.
+Los datos medidos en este equipo (latencias, tokens y decisiones del modelo) están
+en [`docs/mediciones.md`](docs/mediciones.md).
 
 ## Tests
 
@@ -674,43 +597,8 @@ genera `--init`, que se valida contra la tabla de decisiones de permisos).
 
 ## Límites
 
-Lo que **no** se ha implementado a propósito:
-
-* **Capa Multi-Agent** del diagrama (Subagent Spawner, Teammate Mailboxes, FSM
-  Protocol, Autonomous Board, Worktree Isolator). Un 1.5B no sostiene coordinación
-  multi-agente; es donde más se rompería. El bucle secuencial ya da resultado.
-* **MCP Runtime / auto-discover**: cada servidor añade modos de fallo que el modelo
-  no sabe depurar. Se puede añadir como herramienta más adelante.
-* **Streaming y ejecución en paralelo**: con respuestas de ~50 tokens no aporta.
-* **Aprobación no interactiva**: sin terminal, los permisos `ask` se deniegan. Es
-  deliberado; para automatizar hace falta `--yes` explícito.
-* El modelo puede **afirmar cosas sin haberlas hecho** cuando la respuesta no
-  contiene un bloque de comandos. El harness mitiga los casos detectables y siempre
-  separa "lo que dice el modelo" de "lo que el harness verificó"; no lo elimina.
-  Medido: tras delegar, el padre afirmó "creé carpetas y descargué los ficheros" sin
-  haber creado ni descargado nada (el registro de hechos del harness lo desmiente).
-* **Se inventa detalles de lo que encuentra.** Medido: buscó "última versión de Python",
-  encontró 3.14.8 en python.org (correcto) y se inventó la fecha de salida. Por eso el
-  bloque verificado lista las **fuentes consultadas**: el harness no puede comprobar que
-  cada frase salga de ahí, pero deja la lista a la vista para que la compruebes.
-* **El subagente con `qwen2.5:1.5b-instruct` suele no compensar**: la maquinaria es
-  correcta y segura (contexto y traza aislados, `read_only` por defecto, sin recursión),
-  pero el modelo delega mal y el coste en tiempo es alto (una delegación midió 3m19s).
-  Tiene sentido con un modelo mayor: `subagent_model = "qwen2.5-coder:3b"`.
-* No hay paralelismo ni varios subagentes a la vez: es secuencial a propósito, para no
-  abrir modos de fallo que un 1.5B no sabe depurar.
-* **El guard del plan solo alcanza a los nombres de fichero.** Si la tarea no nombra
-  ningún fichero no hay nada que comparar, y un plan que invente nombres pasa el filtro.
-  Desde el arreglo del prompt es raro (ver [«Lo que medimos»](#lo-que-medimos)), pero para
-  una tarea importante conviene leer el plan que se imprime antes de dejarlo correr:
-  el harness verifica el artefacto del plan, no el que pediste tú.
-* **El plan no es exigible con este modelo.** Medido: la estructura del plan sale bien
-  (3 pasos con dependencias correctas) y el trabajo se completa, pero el modelo a veces
-  ignora los avisos y responde en prosa *«Plan marcado como done para el paso [1]»* sin
-  llamar a `plan_update`. El harness no acepta esa frase como evidencia: el registro de
-  hechos muestra `mkdir×1, write_file×1` y ningún `plan_update`, así que la afirmación
-  queda desmentida a la vista. Los avisos están presupuestados (`plan_max_nudges`) para
-  no gastar la ejecución peleándose con el modelo.
+Lo que **no** se ha implementado a propósito (multi-agente, MCP amplio, subagentes
+con un 1.5B…) está en [`docs/limites.md`](docs/limites.md).
 
 ## Estructura
 
@@ -726,17 +614,28 @@ loagen/
 ├── harness/
 │   ├── config.py          # carga de config y decisión de permisos
 │   ├── bootstrap.py       # detección del entorno, `--init` y `--doctor`
-│   ├── llm.py             # cliente de Ollama + normalización de tool-calls
-│   ├── tools.py           # registro tipado de herramientas
-│   ├── permissions.py     # Permission Gate
-│   ├── plan.py            # Task Graph: parseo, saneo y orden topológico
-│   ├── memory.py          # memoria persistente + compresión + registro de fuentes
+│   ├── extensions.py      # adaptadores externos: skills locales y MCP (opt-in)
 │   ├── toolset.py         # selección de herramientas por tarea (menos prompt)
+│   ├── plan.py            # Task Graph: parseo, saneo y orden topológico
 │   ├── cerebro_tool.py    # búsqueda, defs, callers e impacto del cerebro local
 │   ├── navegador.py       # web_search, wiki, fetch_url (render opcional)
-│   ├── trace.py           # event bus / trazas JSONL
-│   └── loop.py            # Master Agent Loop + guards + subagentes
+│   ├── loop.py            # Master Agent Loop + guards + subagentes
+│   ├── core/runtime.py    # presupuesto (tiempo/llamadas/tokens) y estados de tarea
+│   ├── providers/llm.py   # cliente de Ollama + normalización de tool-calls
+│   ├── policy/
+│   │   ├── permissions.py # Permission Gate
+│   │   └── network.py     # política de red (fetch y render)
+│   ├── storage/
+│   │   ├── memory.py      # memoria persistente + compresión + fuentes
+│   │   └── trace.py       # event bus / trazas JSONL
+│   ├── tools/             # registro tipado, resultados, esquema y procesos
+│   ├── skills/data/       # skills locales empaquetadas (SKILL.md)
+│   └── mcp/               # cliente MCP stdio opcional
 ├── docs/
+│   ├── mejoras-harness.md    # guía vigente de seguridad y arquitectura
+│   ├── auditoria-harness.md  # auditoría (histórica)
+│   ├── mediciones.md         # datos medidos (latencias, tokens, decisiones)
+│   ├── limites.md            # lo que no se ha implementado a propósito
 │   └── capturas/          # capturas del README + el script que las regenera
 └── tests/
     ├── test_harness.py    # herramientas, guards, plan, aislamiento
@@ -744,5 +643,11 @@ loagen/
     ├── test_toolset.py    # selección de herramientas por tarea
     ├── test_bootstrap.py  # asistente, diagnóstico y el rules.toml generado
     ├── test_plan_require.py # rechazos del plan con tope
-    └── test_rules.py      # regresión de las decisiones de permisos
+    ├── test_rules.py      # contrato de seguridad (fixture versionado)
+    ├── test_runtime.py    # presupuesto y estados de tarea
+    ├── test_integration_runtime.py  # integración del bucle con el runtime
+    ├── test_hardening.py  # casos límite de permisos y de rutas
+    ├── test_extensions.py # skills locales y cliente MCP
+    ├── test_distribution.py # instalación y empaquetado
+    └── fixtures/          # rules.toml del contrato de seguridad
 ```
