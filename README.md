@@ -88,8 +88,9 @@ la vía 1 o la 2).
 | **Windows** | Funciona, con un ajuste: el `bash` del agente usa `cmd.exe` por defecto y los comandos POSIX (`ls`, `grep`, `cat`) no existen ahí. Con **Git Bash** instalado, en `rules.toml`: `shell = "bash"`. Fuera del shell, el resto (ficheros, permisos, memoria) es igual. Bajo **WSL** no hace falta el ajuste. |
 | **VPS / servidor sin escritorio** | Igual que Linux y **sin nada gráfico**: el render con Chromium es opcional (si falta, `fetch_url` usa el HTML estático). Para tenerlo arrancado, un servicio `systemd` de usuario con `ExecStart=/usr/local/bin/loagen -w /ruta/al/proyecto` — como cualquier otro proceso. |
 
-Windows y macOS **no se han medido** en este repo (todo lo de [«Lo que medimos»](docs/mediciones.md)
-es de Linux): trátalos como «debería funcionar» hasta que alguien lo pruebe.
+Windows y macOS **no se han medido en rendimiento** en este repo: todas las cifras de
+[«Lo que medimos»](docs/mediciones.md) son de Linux. La suite de tests y el empaquetado
+sí corren en los tres sistemas en cada push (CI, `.github/workflows/ci.yml`).
 
 ### Configurar en un minuto
 
