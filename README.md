@@ -174,7 +174,7 @@ python3 agente.py --read-only "explica qué hace este repo"
 | `--init` / `--force` | escribe un `rules.toml` detectado en el workspace (y lo sobrescribe) |
 | `--doctor` | diagnostica el entorno: sale `2` si algo impide ejecutar |
 | `--cerebro-root` | ruta a `cerebro/` (def. autodetectada) |
-| `--plan-max-steps` | máximo de pasos del plan (def. 6) |
+| `--plan-max-steps` | máximo de pasos del plan (def. 5) |
 | `--subagent-model` | modelo de los subagentes (def. el mismo que el principal) |
 | `--subagent-max-steps` | tope de pasos de cada subagente (def. 8) |
 | `--max-output-tokens` | tope de tokens por turno (def. 512); evita que el modelo se enrolle |
@@ -352,16 +352,11 @@ Con `--plan` (o `plan = true` en `rules.toml`), el harness hace **una llamada ex
 dividir la tarea en pasos con dependencias, antes de tocar nada:
 
 ```
-plan (6 pasos)
+plan (3 pasos)
     [1] crear la carpeta calc
     [2] escribir calc.py  (depende de: 1)
     [3] ejecutar el test   (depende de: 2)
 ```
-
-![loagen --plan resolviendo una tarea de varios pasos](docs/capturas/plan.png)
-
-<sub>Salida real: el plan con su dependencia, la herramienta elegida, el `plan_update`
-que marca varios pasos de una vez y la evidencia del harness.</sub>
 
 Qué hace el harness con ese plan:
 
