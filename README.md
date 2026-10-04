@@ -104,13 +104,13 @@ loagen --init --force  # lo sobrescribe
 
 ```
   modelo      qwen2.5:1.5b-instruct   (instalado)
-  workspace   /home/jc/mi-proyecto
+  workspace   /home/usuario/mi-proyecto
   ollama      http://127.0.0.1:11434
-  cerebro     /home/jc/freebuff/cerebro
+  cerebro     /home/usuario/cerebro
   render JS   sí
   shell       el del sistema
 
-escrito: /home/jc/mi-proyecto/rules.toml
+escrito: /home/usuario/mi-proyecto/rules.toml
 ```
 
 Los números que escribe no son inventados: son los medidos en este proyecto (`num_predict`
@@ -122,10 +122,10 @@ tarea de un paso no aporta nada y cuesta una llamada extra al modelo).
 
 ```
   [ok   ] Python     3.12.3 (tomllib disponible)
-  [ok   ] Reglas     6 reglas de /home/jc/mi-proyecto/rules.toml
+  [ok   ] Reglas     6 reglas de /home/usuario/mi-proyecto/rules.toml
   [ok   ] Ollama     http://127.0.0.1:11434 · 2 modelo(s): qwen2.5-coder:3b, qwen2.5:1.5b-instruct
   [ok   ] Modelo     qwen2.5:1.5b-instruct (instalado)
-  [ok   ] Workspace  /home/jc/mi-proyecto (escribible)
+  [ok   ] Workspace  /home/usuario/mi-proyecto (escribible)
   [info ] Cerebro    no detectado: se retiran cerebro_buscar/defs/callers/impacto
   [ok   ] Shell      el del sistema (/bin/sh)
 ```
@@ -665,7 +665,7 @@ Datos reales de este equipo con `qwen2.5:1.5b-instruct` (no estimaciones):
 python3 -m unittest discover -s tests -v
 ```
 
-Son 225 pruebas y **no necesitan Ollama ni red**: la parte de modelo se sustituye por
+Son 224 pruebas y **no necesitan Ollama ni red**: la parte de modelo se sustituye por
 modelos falsos. En GitHub corren solas con cada push y pull request, en Linux, macOS y
 Windows y con Python 3.11, 3.12 y 3.13 (`.github/workflows/ci.yml`), más un trabajo que
 hace `pip install .` y ejecuta el comando `loagen` instalado.

@@ -23,6 +23,9 @@ htmlcov/
 # No se versiona: la plantilla pública es rules.example.toml y cada usuario genera
 # la suya con `loagen --init`.
 /rules.toml
+# Regresión local de esa config personal: contiene tus rutas reales, así que tampoco
+# se versiona. El contrato público vive en tests/fixtures/rules.toml.
+/tests/test_rules_personal.py
 
 # Artefactos de empaquetado (pip install . / python -m build)
 build/
