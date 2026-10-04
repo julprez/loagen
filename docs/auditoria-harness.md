@@ -4,7 +4,7 @@
 > correcciones del mismo día, recogida en [`mejoras-harness.md`](mejoras-harness.md).
 > Los hallazgos P0 y P1 se corrigieron después; consérvalo como registro de lo que se
 > encontró, no como descripción del código actual. En particular, hoy `pyflakes` y
-> `mypy --check-untyped-defs` pasan limpios y la suite tiene **223 pruebas** (no 197).
+> `mypy --check-untyped-defs` pasan limpios y la suite tiene **225 pruebas** (no 197).
 
 Fecha: 4 de octubre de 2026. Alcance: código actual de `agente.py`, núcleo `harness/`, tests, instalación, empaquetado, CI y generación de capturas. No se han cambiado permisos, herramientas ni comportamiento del producto.
 
@@ -18,7 +18,7 @@ Antes de ampliar funcionalidades hay que corregir el PermissionGate y distinguir
 
 ## Evidencia y límites
 
-- Linux, Python 3.12: `python3 -m unittest discover -s tests`: **197 tests OK** en la fecha de esta auditoría (hoy son 223), dos ejecuciones finales, 0,118–0,127 s.
+- Linux, Python 3.12: `python3 -m unittest discover -s tests`: **197 tests OK** en la fecha de esta auditoría (hoy son 225), dos ejecuciones finales, 0,118–0,127 s.
 - `compileall` de harness, CLI, tests y generador: OK. `bash -n instalar.sh`: OK.
 - Pyflakes completo: **fallaba** por import no utilizado en `harness/navegador.py:226` (corregido; hoy pasa limpio, igual que `mypy --check-untyped-defs`).
 - Reproducciones de permisos, filesystem y bucle con directorios temporales y modelos falsos deterministas. No se leyeron secretos reales ni se ejecutaron comandos destructivos.

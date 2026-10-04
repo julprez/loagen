@@ -665,7 +665,7 @@ Datos reales de este equipo con `qwen2.5:1.5b-instruct` (no estimaciones):
 python3 -m unittest discover -s tests -v
 ```
 
-Son 223 pruebas y **no necesitan Ollama ni red**: la parte de modelo se sustituye por
+Son 225 pruebas y **no necesitan Ollama ni red**: la parte de modelo se sustituye por
 modelos falsos. En GitHub corren solas con cada push y pull request, en Linux, macOS y
 Windows y con Python 3.11, 3.12 y 3.13 (`.github/workflows/ci.yml`), más un trabajo que
 hace `pip install .` y ejecuta el comando `loagen` instalado.
