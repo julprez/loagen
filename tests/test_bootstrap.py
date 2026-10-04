@@ -240,7 +240,12 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(labels["Python"], bootstrap.OK)
         self.assertEqual(labels["Ollama"], bootstrap.OK)
         self.assertEqual(labels["Modelo"], bootstrap.OK)
-        self.assertEqual(labels["Shell"], bootstrap.OK)
+        if os.name == "nt":
+            # Sin `shell` configurado, en Windows el doctor avisa (cmd.exe por defecto):
+            # no bloquea, pero tampoco está «listo» hasta poner Git Bash.
+            self.assertNotEqual(labels["Shell"], bootstrap.ERROR)
+        else:
+            self.assertEqual(labels["Shell"], bootstrap.OK)
 
     def test_ollama_down_is_a_blocker(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -87,14 +87,16 @@ class ToolTests(unittest.TestCase):
     def test_glob_and_grep(self):
         self.reg.run("write_file", {"path": "src/main.go", "content": "package main\n"})
         self.reg.run("write_file", {"path": "src/util.py", "content": "def hola():\n    pass\n"})
+        # El separador depende del SO: `src/util.py` en POSIX, `src\util.py` en Windows.
+        expected = os.path.join("src", "util.py")
         out, err = self.reg.run("glob", {"pattern": "**/*.py"})
         self.assertFalse(err)
-        self.assertIn("src/util.py", out)
+        self.assertIn(expected, out)
         self.assertNotIn("main.go", out)
 
         out, err = self.reg.run("grep", {"pattern": "def hola"})
         self.assertFalse(err)
-        self.assertIn("src/util.py", out)
+        self.assertIn(expected, out)
 
     def test_path_with_newlines_is_rejected(self):
         """Medido: el modelo metió un script entero en `path` y se creó una carpeta con
@@ -120,10 +122,13 @@ class ToolTests(unittest.TestCase):
         self.assertIn("exit 3", out)
 
     def test_bash_runs_in_workspace(self):
-        command = f'"{sys.executable}" -c "import os; print(os.getcwd())"'
+        # Comando nativo por plataforma: `cmd.exe` no resuelve igual que `sh` las
+        # comillas anidadas de invocar un intérprete con `-c` (ver «Windows» en el README).
+        command = "cd" if os.name == "nt" else "pwd"
         out, err = self.reg.run("bash", {"command": command})
-        self.assertFalse(err)
-        self.assertEqual(out.strip(), os.path.realpath(self.tmp.name))
+        self.assertFalse(err, out)
+        self.assertEqual(os.path.normcase(os.path.realpath(out.strip())),
+                         os.path.normcase(os.path.realpath(self.tmp.name)))
 
     def test_bash_passes_the_configured_shell_as_executable(self):
         """`shell` de rules.toml llega a subprocess como `executable` (vía para Windows)."""
